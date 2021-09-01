@@ -12,7 +12,7 @@
 double GeodDistanceCalculator::distance(Point& from, Point& to) const
 {
 #ifndef _WIN32
-    stringstream pin, pout;
+    /*stringstream pin, pout;
     string s1, s2;
     double dist;
     char outbuf[256];
@@ -45,7 +45,10 @@ double GeodDistanceCalculator::distance(Point& from, Point& to) const
     pout << outbuf;
     pout >> s1 >> s2 >> dist;
 
-    return dist;
+    return dist;*/
+    static_cast<void>(to);
+    static_cast<void>(from);
+    return -1;
 #else
     static_cast<void>(to);
     static_cast<void>(from);
