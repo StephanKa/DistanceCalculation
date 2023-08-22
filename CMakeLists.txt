@@ -1,4 +1,6 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.15)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.19)
+
+INCLUDE(cmake/Conan.cmake)
 
 # Set the project name to your project name, my project isn't very descriptive
 PROJECT(DistanceCalculation CXX)
@@ -52,13 +54,6 @@ IF(ENABLE_PCH)
             <vector>
             <utility>)
 ENDIF()
-
-# Set up some extra Conan dependencies based on our needs before loading Conan
-SET(CONAN_EXTRA_REQUIRES "")
-SET(CONAN_EXTRA_OPTIONS "")
-
-INCLUDE(cmake/Conan.cmake)
-RUN_CONAN()
 
 ADD_SUBDIRECTORY(src)
 

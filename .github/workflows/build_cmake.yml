@@ -13,12 +13,21 @@ env:
 
 jobs:
   linux:
+    name: ${{ matrix.os }}, ${{ matrix.compiler.name }}, ${{ matrix.buildtype }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix entry fails.
       matrix:
-        os: [ubuntu-latest]
-        compiler: [ {cpp: g++-10, c: gcc-10}, {cpp: g++-11, c: gcc-11}, {cpp: clang++-10, c: clang-10}, {cpp: clang++-11, c: clang-11}, {cpp: clang++-12, c: clang-12} ]
-    steps:
+        os: [ubuntu-22.04]
+        buildtype: [debug, release]
+        compiler: [ {name: 'GCC 10', preset: gcc-10, pkgs: 'gcc-10 g++-10 lib32gcc-10-dev gcc-multilib'},
+                    {name: 'GCC 11', preset: gcc-11, pkgs: 'gcc-11 g++-11 lib32gcc-11-dev gcc-multilib'},
+                    {name: 'GCC 12', preset: gcc-12, pkgs: 'gcc-12 g++-12 lib32gcc-12-dev gcc-multilib'},
+                    {name: 'Clang 12', preset: clang-12, pkgs: 'clang-12 llvm-12'},
+                    {name: 'Clang 13', preset: clang-13, pkgs: 'clang-13 llvm-13'},
+                    {name: 'Clang 14', preset: clang-14, pkgs: 'clang-14 llvm-14'},
+                    {name: 'Clang 15', preset: clang-15, pkgs: 'clang-15 llvm-15'}
+                  ]    steps:
     - uses: actions/checkout@v2
 
     - name: Cache
@@ -36,82 +45,57 @@ jobs:
       # We'll use this as our working directory for all subsequent commands
       run: cmake -E make_directory ${{runner.workspace}}/build
 
-    - run:   |
+    - name: Install LLVM dependencies
+      if: ${{ startsWith(matrix.compiler.name, 'Clang') }}
+      run:   |
+             sudo apt-get purge --auto-remove llvm python3-lldb-14 llvm-14 # https://github.com/llvm/llvm-project/issues/64182
+             sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+      shell: bash
+
+    - name: Install dependencies
+      run:   |
              sudo apt update
-             sudo apt install gcc-11 g++-11 clang-12 llvm-12
+             sudo apt install ninja-build ${{ matrix.compiler.pkgs }}
       shell: bash
 
     - name: Install conan
       shell: bash
       run: |
-        python3 -m pip install --upgrade pip setuptools jinja2 cmsis-svd
-        python3 -m pip install conan
-        source ~/.profile
+           python3 -m pip install --upgrade pip setuptools conan
+           source ~/.profile
 
-    - name: Configure CMake
+    - name: Configure via CMake
       # Use a bash shell so we can use the same syntax for environment variable
       # access regardless of the host operating system
       shell: bash
-      working-directory: ${{runner.workspace}}/build
-      env:
-         CC: ${{ matrix.compiler.c }}
-         CXX: ${{ matrix.compiler.cpp }}
-      # Note the current convention is to use the -S and -B options here to specify source
-      # and build directories, but this is only available with CMake 3.13 and higher.
-      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-      #
-      # We need to source the profile file to make sure conan is in PATH
-      run: |
-        source ~/.profile
-        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      run: cmake --preset ${{ matrix.compiler.preset }}-${{ matrix.buildtype }}
 
     - name: Build
-      working-directory: ${{runner.workspace}}/build
       shell: bash
       # Execute the build.  You can specify a specific target with "--target <NAME>"
-      run: cmake --build . --config $BUILD_TYPE
+      run:  cmake --build --preset ${{ matrix.compiler.preset }}-${{ matrix.buildtype }}
 
-    - name: Test
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C $BUILD_TYPE
   windows:
+    name: ${{ matrix.os }}, ${{ matrix.buildtype }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false  # 'false' means Don't stop matrix workflows even if some matrix entry fails.
       matrix:
-        os: [windows-latest, windows-2019]
+        os: [windows-2022, windows-2019]
+        buildtype: [debug]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install conan
         shell: bash
         run: |
           python3 -m pip install --upgrade pip setuptools
-          python3 -m pip install conan
-      - name: Create Build Environment
-        # Some projects don't allow in-source building, so create a separate build directory
-        # We'll use this as our working directory for all subsequent commands
-        run: cmake -E make_directory ${{github.workspace}}/build
+          python3 -m pip install conan jsonschema virtualenv ninja
+
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
         shell: bash
-        # access regardless of the host operating system
-        working-directory: ${{github.workspace}}/build
-        # Note the current convention is to use the -S and -B options here to specify source
-        # and build directories, but this is only available with CMake 3.13 and higher.
-        # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
-        #
-        # We need to source the profile file to make sure conan is in PATH
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        run: cmake --preset ${{ matrix.os }}-${{ matrix.buildtype }}
+
       - name: Build
         shell: bash
-        working-directory: ${{github.workspace}}/build
-        # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build . --config $BUILD_TYPE
-      - name: Test
-        shell: bash
-        working-directory: ${{github.workspace}}/build
-        # Execute tests defined by the CMake configuration.
-        # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-        run: ctest -C $BUILD_TYPE
+        run:  cmake --build --preset ${{ matrix.os }}-${{ matrix.buildtype }}

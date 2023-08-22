@@ -4,3 +4,6 @@
 .settings/
 Debug/
 Release/
+*build*/
+build/
+.idea/

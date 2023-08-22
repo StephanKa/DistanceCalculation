@@ -7,7 +7,7 @@
 class SphereDistanceCalculator
 {
 public:
-    [[nodiscard]] double distance(Point& from, Point& to) const
+    [[nodiscard]] static constexpr double distance(const From& from, const To& to)
     {
         const double lat1 = from.lat() * DEG_TO_RAD;
         const double lon1 = from.lon() * DEG_TO_RAD;
@@ -16,7 +16,7 @@ public:
         return earthRadius * acos(sin(lat1) * sin(lat2) + cos(lat1) * cos(lat2) * cos(lon2 - lon1));
     };
 
-    [[nodiscard]] std::string_view name() const { return m_name; };
+    [[nodiscard]] static constexpr std::string_view name() { return m_name; };
 
 private:
     static constexpr std::string_view m_name = "Sphere";
